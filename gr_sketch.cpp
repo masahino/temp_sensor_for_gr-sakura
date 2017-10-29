@@ -9,6 +9,20 @@ TEthernet Ethernet;
 EthernetServer server(80);
 byte mac[] = {0x90, 0xA2, 0xDA, 0x0D, 0x02, 0x8C};
 byte myip[] = {192, 168, 1, 223};
+static unsigned long start;
+static int client_status, client_timer;
+
+static void timer()
+{
+  client_timer += 1;
+  if (client_timer >= 10000) {
+    digitalWrite(PIN_LED2, HIGH);
+    system_reboot(REBOOT_USERAPP);
+  }
+  if(digitalRead(PIN_SW) == LOW){
+    system_reboot(REBOOT_USERAPP);
+  }
+}
 
 void setup()
 {
@@ -16,6 +30,7 @@ void setup()
   pinMode(PIN_LED1, OUTPUT);
   pinMode(PIN_LED2, OUTPUT);
   pinMode(PIN_LED3, OUTPUT);
+  pinMode(PIN_SW, INPUT);
   digitalWrite(PIN_LED0, HIGH);
   delay(1000);
   dht11 = new DHT11(2);
@@ -26,6 +41,12 @@ void setup()
   
   Ethernet.begin(mac, myip);
   server.begin();
+
+  start = millis();
+  client_status = 0;
+  client_timer = 0;
+  timer_regist_userfunc(timer);
+
   digitalWrite(PIN_LED0, HIGH);
 }
 
@@ -35,10 +56,13 @@ void loop()
   float temp, humid;
   int   iret;
 
-  digitalWrite(PIN_LED1, HIGH);
   EthernetClient client = server.available();
   
+  client_status = 0;
+  client_timer = 0;
   if (client) {
+    digitalWrite(PIN_LED1, HIGH);
+    client_status = 1;
     if (TKUSB_IsConnected() == 1) {
       Serial.println("new client");
     }
