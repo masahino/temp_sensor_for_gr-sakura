@@ -20,21 +20,6 @@ const int pinButton = 4;
 /* 7seg led */
 TM1637 tm1637(6, 7); /* D6 clock, D7 DIO */
 
-static void timer()
-{
-  client_timer += 1;
-  if (client_timer >= 10000) {
-    digitalWrite(PIN_LED2, HIGH);
-    system_reboot(REBOOT_USERAPP);
-  }
-  if (digitalRead(PIN_SW) == LOW){
-    system_reboot(REBOOT_USERAPP);
-  }
-
-  if (digitalRead(pinButton)) {
-    system_reboot(REBOOT_USERAPP);
-  }
-}
 
 static void led_disp(int temp, int humid)
 {
@@ -46,6 +31,48 @@ static void led_disp(int temp, int humid)
   ListDisp[2] = humid / 10;
   ListDisp[3] = humid % 10;
   tm1637.display(ListDisp);
+}
+
+static void update_led()
+{
+  float temp, humid;
+  int   iret;
+  iret = dht11->read(&temp, &humid);
+  if ( iret == 0 ){
+    led_disp((int)temp, (int)humid);
+  } else {
+    led_disp(99, 99);
+  }
+}
+
+static void led_show_float(float f)
+{
+  int d1, d2;
+  int8_t ListDisp[4];
+  d1 = (int)f;
+  d2 = (int)((f-d1)*100);
+  ListDisp[0] = d1 / 10;
+  ListDisp[1] = d1 % 10;
+  ListDisp[2] = d2 / 10;
+  ListDisp[3] = d2 % 10;
+  tm1637.display(ListDisp);
+}
+
+
+static void timer()
+{
+  client_timer += 1;
+  if (client_timer >= 10000) {
+    digitalWrite(PIN_LED2, HIGH);
+//    system_reboot(REBOOT_USERAPP);
+  }
+  if (digitalRead(PIN_SW) == LOW){
+    system_reboot(REBOOT_USERAPP);
+  }
+
+  if (digitalRead(pinButton)) {
+    system_reboot(REBOOT_USERAPP);
+  }
 }
 
 void setup()
@@ -64,6 +91,7 @@ void setup()
   /* 7seg init */
   tm1637.init();
   tm1637.set(BRIGHT_DARKEST);
+  tm1637.point(true);
 
   Serial.begin(9600);
   digitalWrite(PIN_LED0, LOW);
@@ -82,6 +110,7 @@ void setup()
     ListDisp[i] = 0;
   }
   tm1637.display(ListDisp);
+  update_led();
 
   digitalWrite(PIN_LED0, HIGH);
 }
@@ -156,7 +185,18 @@ void loop()
     delay(1);
     digitalWrite(PIN_LED3, LOW);
     client.stop();
-//  delay(1000);
+//    delay(1000);
     digitalWrite(PIN_LED1, LOW);
   }
+  iret = dht11->read(&temp, &humid);
+  snprintf(msg,32,"T: %5.2f C, H: %5.2f %%", temp, humid);
+  if (TKUSB_IsConnected() == 1) {
+     Serial.println(msg);
+  }
+  if (iret == 0) {
+    led_show_float(temp);
+    delay(10000);
+    led_show_float(humid);
+  }
+  delay(10000);
 }
